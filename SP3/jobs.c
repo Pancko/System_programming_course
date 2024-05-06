@@ -45,7 +45,6 @@ void enqueue_job(queue_job *queue, job *new)
 
 job *dequeue_job(queue_job *queue)
 {
-	
     if (queue->head == NULL)
         return NULL;
 
@@ -68,14 +67,13 @@ void ProcessJob()
 	job* j = dequeue_job(&q);
 	if (j != NULL)
 		fputs(j->request, result_file);
-    sem_post(&semaphore);
 	pthread_mutex_unlock(&mutex);
 }
 void ThreadsQueue()
 {
-	sem_wait(&semaphore);
-	while(q.head != NULL)
+	while(1)
 	{
+		sem_wait(&semaphore);
 		ProcessJob();
 	}
 }
@@ -103,6 +101,10 @@ int main(int argc, char const *argv[])
 		printf("Can't open result file\n");
 		exit(-1);
 	}
+	for (int i = 0; i < N; ++i)
+	{		
+		pthread_create(&threads[i], NULL, (void *)ThreadsQueue, NULL);
+	}
 
 	char buffer[256];
 	job first;
@@ -114,14 +116,14 @@ int main(int argc, char const *argv[])
 		enqueue_job(&q, &first);
 		fgets(buffer, 256, stdin);
 	}
-	for (int i = 0; i < N; ++i)
-	{		
-		pthread_create(&threads[i], NULL, (void *)ThreadsQueue, NULL);
-	}
 
-	for (int i = 0; i < N; ++i)
-	{		
-		pthread_join(threads[i], NULL);
+	while (q.head != NULL)
+	{
+		for (int i = 0; i < N; ++i)
+		{
+			if (q.head == NULL) break;
+			pthread_join(threads[i], NULL);
+		}
 	}
 	fclose(result_file);
 	sem_destroy(&semaphore);
